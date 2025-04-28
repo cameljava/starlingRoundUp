@@ -1,0 +1,15 @@
+spring:
+  jackson:
+    deserializer:
+      fail-on-unknown-properties: false
+
+starling:
+  api:
+    url: https://api-sandbox.starlingbank.com
+    token: test-token
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html 
