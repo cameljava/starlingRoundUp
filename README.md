@@ -9,13 +9,14 @@ A Spring Boot application that implements the "round-up" functionality for Starl
 - Creates and manages savings goals
 - Transfers round-up amounts to savings goals
 - OpenAPI documentation with Swagger UI
+- Environment-based configuration using application.yml and .env files
 
 ## Technology Stack
 
 - Java 21
 - Spring Boot 3.2.12
 - Spring Web
-- SpringDoc OpenAPI UI
+- SpringDoc OpenAPI UI (version 2.4.0)
 - Spring Dotenv for environment variable management
 - Maven for dependency management and build
 - Docker support
@@ -25,14 +26,15 @@ A Spring Boot application that implements the "round-up" functionality for Starl
 - Java 21 or higher
 - Maven 3.6 or higher
 - Starling Bank API Token (sandbox or production)
+- Docker (optional, for containerized deployment)
 
 ## Setup
 
 ### Environment Variables
 
-Create a `.env` file in the root directory with the following variables with different values for different environments:
+Create a `.env` file in the root directory with the following variables:
 
-```
+```properties
 STARLING_API_TOKEN=your_starling_api_token
 STARLING_API_URL=https://api-sandbox.starlingbank.com
 SERVER_PORT=8080
@@ -77,9 +79,9 @@ docker run -d -p 8080:8080 \
 
 ## API Endpoints
 
-|         Endpoint       | Method |                                                 Description                                                  |
-|------------------------|--------|--------------------------------------------------------------------------------------------------------------|
-| `/api/v2/feed/roundup` |  POST  | Rounds up all transactions from the past week to the nearest pound and transfers the total to a savings goal |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v2/feed/roundup` | POST | Rounds up all transactions from the past week to the nearest pound and transfers the total to a savings goal |
 
 ## Project Structure
 
@@ -90,8 +92,23 @@ src/main/java/com/example/starling/roundup/
 ├── exception/          # Custom exceptions and error handlers
 ├── model/              # Data models and DTOs
 ├── service/            # Business logic implementation
-└── util/               # Utility classes
+├── util/               # Utility classes
+└── StarlingRoundUpApplication.java  # Main application class
+
+src/main/resources/
+├── application.yml     # Application configuration
+└── .env               # Environment variables (not tracked in git)
 ```
+
+## Development
+
+### IDE Setup
+- The project includes configuration for both IntelliJ IDEA (.idea/) and VS Code (.vscode/)
+- Recommended to use Java 21 compatible IDE
+
+### Testing
+- Unit tests are located in `src/test/java`
+- Run tests using: `./mvnw test`
 
 ## Contributors
 
