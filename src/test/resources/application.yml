@@ -5,7 +5,7 @@ spring:
 
 starling:
   api:
-    url: https://api-sandbox.starlingbank.com
+    url: http://localhost:${wiremock.server.port}
     token: test-token
 
 springdoc:
