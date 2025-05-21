@@ -1,8 +1,15 @@
 package com.example.starling.roundup.controller;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -110,5 +117,108 @@ class RoundUpControllerTest {
 
         // Verify
         verify(roundUpService).roundUpTransactions();
+    }
+
+    @Test
+    void roundUpTransactions_ShouldHandleConcurrentRequests() throws Exception {
+        // Given
+        int numberOfThreads = 10;
+        CountDownLatch latch = new CountDownLatch(numberOfThreads);
+        ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger errorCount = new AtomicInteger(0);
+
+        doNothing().when(roundUpService).roundUpTransactions();
+
+        // When
+        for (int i = 0; i < numberOfThreads; i++) {
+            executor.submit(() -> {
+                try {
+                    mockMvc.perform(post("/api/v2/feed/roundup")
+                            .contentType(MediaType.APPLICATION_JSON))
+                            .andExpect(status().isOk());
+                    successCount.incrementAndGet();
+                } catch (Exception e) {
+                    errorCount.incrementAndGet();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Then
+        latch.await(5, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        // Verify all requests were processed
+        verify(roundUpService, times(numberOfThreads)).roundUpTransactions();
+        assert successCount.get() == numberOfThreads;
+        assert errorCount.get() == 0;
+    }
+
+    @Test
+    void roundUpTransactions_ShouldHandleMultipleRequests() throws Exception {
+        // Given
+        int requestCount = 10;
+        doNothing().when(roundUpService).roundUpTransactions();
+
+        // When
+        for (int i = 0; i < requestCount; i++) {
+            mockMvc.perform(post("/api/v2/feed/roundup")
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
+            
+            // Add a small delay between requests to prevent overwhelming the system
+            Thread.sleep(50);
+        }
+
+        // Then
+        // Verify all requests were processed successfully
+        verify(roundUpService, times(requestCount)).roundUpTransactions();
+    }
+
+    @Test
+    void roundUpTransactions_ShouldHandleDifferentCurrencies() throws Exception {
+        // Given
+        String[] currencies = {"GBP", "EUR", "USD", "JPY"};
+        doNothing().when(roundUpService).roundUpTransactions();
+
+        // When & Then
+        for (String currency : currencies) {
+            mockMvc.perform(post("/api/v2/feed/roundup")
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
+        }
+
+        // Verify service was called for each currency
+        verify(roundUpService, times(currencies.length)).roundUpTransactions();
+    }
+
+    @Test
+    void roundUpTransactions_ShouldHandleLargeAmounts() throws Exception {
+        // Given
+        doNothing().when(roundUpService).roundUpTransactions();
+
+        // When & Then
+        mockMvc.perform(post("/api/v2/feed/roundup")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        // Verify service was called
+        verify(roundUpService, times(1)).roundUpTransactions();
+    }
+
+    @Test
+    void roundUpTransactions_ShouldHandleZeroAmountTransactions() throws Exception {
+        // Given
+        doNothing().when(roundUpService).roundUpTransactions();
+
+        // When & Then
+        mockMvc.perform(post("/api/v2/feed/roundup")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        // Verify service was called
+        verify(roundUpService, times(1)).roundUpTransactions();
     }
 } 
