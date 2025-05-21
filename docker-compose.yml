@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=test
+      - STARLING_API_URL=http://wiremock:8080
+      - STARLING_API_TOKEN=mock-token
+    depends_on:
+      - wiremock
+    networks:
+      - perf-test-network
+
+  wiremock:
+    image: wiremock/wiremock:3.4.2
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./src/test/resources/wiremock:/home/wiremock
+    command: --verbose
+    networks:
+      - perf-test-network
+
+networks:
+  perf-test-network:
+    driver: bridge 

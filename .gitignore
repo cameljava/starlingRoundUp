@@ -38,3 +38,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### jmeter ###
+**/jmeter/results/**
+**/jmeter/jmeter.log
+**/jmeter/jmeter.log.zip*

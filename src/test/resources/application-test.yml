@@ -1,0 +1,9 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+starling:
+  api:
+    url: ${STARLING_API_URL:http://wiremock:8080}
+    token: ${STARLING_API_TOKEN:mock-token}

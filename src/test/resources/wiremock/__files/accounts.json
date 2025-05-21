@@ -1,0 +1,12 @@
+{
+  "accounts": [
+    {
+      "accountUid": "123e4567-e89b-12d3-a456-426614174000",
+      "accountType": "PRIMARY",
+      "defaultCategory": "123e4567-e89b-12d3-a456-426614174001",
+      "currency": "GBP",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "name": "Mock Account"
+    }
+  ]
+} 
