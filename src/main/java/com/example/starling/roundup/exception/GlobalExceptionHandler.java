@@ -5,8 +5,8 @@ import java.util.Map;
 
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.server.ServerResponse;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebExceptionHandler;
 
@@ -33,15 +33,23 @@ public class GlobalExceptionHandler implements WebExceptionHandler {
     }
 
     private Mono<Void> handleDownstreamClientError(ServerWebExchange exchange, DownstreamClientException ex) {
-        return ServerResponse.status(HttpStatus.BAD_GATEWAY)
-                .bodyValue("Downstream api client error: " + ex.getMessage())
-                .flatMap(response -> response.writeTo(exchange, null));
+        exchange.getResponse().setStatusCode(HttpStatus.BAD_GATEWAY);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        return exchange.getResponse().writeWith(
+                Mono.just(exchange.getResponse().bufferFactory().wrap(
+                        ("{\"error\":\"Downstream api client error: " + ex.getMessage() + "\"}").getBytes()
+                ))
+        );
     }
 
     private Mono<Void> handleDownstreamServerError(ServerWebExchange exchange, DownstreamServerException ex) {
-        return ServerResponse.status(HttpStatus.BAD_GATEWAY)
-                .bodyValue("Downstream api server error: " + ex.getMessage())
-                .flatMap(response -> response.writeTo(exchange, null));
+        exchange.getResponse().setStatusCode(HttpStatus.BAD_GATEWAY);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        return exchange.getResponse().writeWith(
+                Mono.just(exchange.getResponse().bufferFactory().wrap(
+                        ("{\"error\":\"Downstream api server error: " + ex.getMessage() + "\"}").getBytes()
+                ))
+        );
     }
 
     private Mono<Void> handleInsufficientBalance(ServerWebExchange exchange, InsufficientBalanceException ex) {
@@ -50,9 +58,13 @@ public class GlobalExceptionHandler implements WebExceptionHandler {
                 "code", "InsufficientBalance",
                 "message", ex.getMessage()
         );
-        return ServerResponse.status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .bodyValue(body)
-                .flatMap(response -> response.writeTo(exchange, null));
+        exchange.getResponse().setStatusCode(HttpStatus.UNPROCESSABLE_ENTITY);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        return exchange.getResponse().writeWith(
+                Mono.just(exchange.getResponse().bufferFactory().wrap(
+                        ("{\"timestamp\":\"" + body.get("timestamp") + "\",\"code\":\"" + body.get("code") + "\",\"message\":\"" + body.get("message") + "\"}").getBytes()
+                ))
+        );
     }
 
     private Mono<Void> handleInvalidAccountData(ServerWebExchange exchange, InvalidAccountDataException ex) {
@@ -61,9 +73,13 @@ public class GlobalExceptionHandler implements WebExceptionHandler {
                 "code", "InvalidAccountData",
                 "message", ex.getMessage()
         );
-        return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .bodyValue(body)
-                .flatMap(response -> response.writeTo(exchange, null));
+        exchange.getResponse().setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        return exchange.getResponse().writeWith(
+                Mono.just(exchange.getResponse().bufferFactory().wrap(
+                        ("{\"timestamp\":\"" + body.get("timestamp") + "\",\"code\":\"" + body.get("code") + "\",\"message\":\"" + body.get("message") + "\"}").getBytes()
+                ))
+        );
     }
 
     private Mono<Void> handleAccountNotFound(ServerWebExchange exchange, AccountNotFoundException ex) {
@@ -72,8 +88,12 @@ public class GlobalExceptionHandler implements WebExceptionHandler {
                 "code", "AccountNotFound",
                 "message", ex.getMessage()
         );
-        return ServerResponse.status(HttpStatus.NOT_FOUND)
-                .bodyValue(body)
-                .flatMap(response -> response.writeTo(exchange, null));
+        exchange.getResponse().setStatusCode(HttpStatus.NOT_FOUND);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        return exchange.getResponse().writeWith(
+                Mono.just(exchange.getResponse().bufferFactory().wrap(
+                        ("{\"timestamp\":\"" + body.get("timestamp") + "\",\"code\":\"" + body.get("code") + "\",\"message\":\"" + body.get("message") + "\"}").getBytes()
+                ))
+        );
     }
 }

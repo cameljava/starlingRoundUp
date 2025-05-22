@@ -56,7 +56,7 @@ LOG_LEVEL=INFO
 ## API Documentation
 
 Once the application is running, you can access the API documentation at:
-- Swagger UI: http://localhost:8080/swagger-ui.html
+- Swagger UI: http://localhost:8080/webjars/swagger-ui/index.html
 - OpenAPI JSON: http://localhost:8080/api-docs
 
 ## Docker Support
