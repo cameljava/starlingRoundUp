@@ -1,0 +1,14 @@
+{
+  "savingsGoalUid": "123e4567-e89b-12d3-a456-426614174003",
+  "name": "Round Up Savings",
+  "target": {
+    "currency": "GBP",
+    "minorUnits": 100000
+  },
+  "totalSaved": {
+    "currency": "GBP",
+    "minorUnits": 0
+  },
+  "savedPercentage": 0,
+  "state": "ACTIVE"
+} 

@@ -1,0 +1,22 @@
+{
+  "effectiveBalance": {
+    "currency": "GBP",
+    "minorUnits": 50
+  },
+  "clearedBalance": {
+    "currency": "GBP",
+    "minorUnits": 50
+  },
+  "pendingTransactions": {
+    "currency": "GBP",
+    "minorUnits": 0
+  },
+  "availableToSpend": {
+    "currency": "GBP",
+    "minorUnits": 50
+  },
+  "acceptedOverdraft": {
+    "currency": "GBP",
+    "minorUnits": 0
+  }
+} 

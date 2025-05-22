@@ -2,8 +2,10 @@ spring:
   config:
     activate:
       on-profile: test
+  application:
+    name: starling-roundup-test
 
 starling:
   api:
-    url: ${STARLING_API_URL:http://wiremock:8080}
-    token: ${STARLING_API_TOKEN:mock-token}
+    url: http://localhost:${wiremock.server.port}
+    token: test-token

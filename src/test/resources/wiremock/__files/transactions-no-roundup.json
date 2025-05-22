@@ -1,0 +1,26 @@
+{
+  "feedItems": [
+    {
+      "feedItemUid": "123e4567-e89b-12d3-a456-426614174002",
+      "categoryUid": "123e4567-e89b-12d3-a456-426614174001",
+      "amount": {
+        "currency": "GBP",
+        "minorUnits": 1000
+      },
+      "sourceAmount": {
+        "currency": "GBP",
+        "minorUnits": 1000
+      },
+      "direction": "OUT",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "transactionTime": "2024-01-01T00:00:00.000Z",
+      "settlementTime": "2024-01-01T00:00:00.000Z",
+      "source": "FASTER_PAYMENTS_OUT",
+      "status": "SETTLED",
+      "counterPartyType": "MERCHANT",
+      "counterPartyName": "Mock Merchant",
+      "counterPartySubEntityName": "Mock Store",
+      "reference": "Mock Transaction"
+    }
+  ]
+} 
