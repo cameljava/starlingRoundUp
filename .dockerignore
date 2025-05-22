@@ -1,13 +1,37 @@
+# Git
 .git
 .gitignore
+
+# Maven
 target/
 !target/*.jar
-*.md
-.env
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE files
 .idea/
 *.iml
 .vscode/
-.settings/
 .project
-.classpath 
+.classpath
+.settings/
+
+# Logs
+logs/
+*.log
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Test files
+src/test/
+
+# Docker
+Dockerfile
+.dockerignore
+
+*.md
+.env
 **/jmeter/

@@ -40,6 +40,6 @@ build/
 .vscode/
 
 ### jmeter ###
-**/jmeter/results/**
+#**/jmeter/results/**
 **/jmeter/jmeter.log
 **/jmeter/jmeter.log.zip*
