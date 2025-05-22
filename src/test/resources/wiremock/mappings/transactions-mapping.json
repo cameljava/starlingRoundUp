@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "GET",
-    "urlPattern": "/api/v2/feed/account/.*/category/.*/transactions-between"
+    "urlPattern": "/api/v2/feed/account/.*/category/.*/transactions-between\\?minTransactionTimestamp=.*&maxTransactionTimestamp=.*"
   },
   "response": {
     "status": 200,
