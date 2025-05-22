@@ -1,25 +1,31 @@
 package com.example.starling.roundup.exception;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.net.URI;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.lang.NonNull;
-import org.springframework.web.client.DefaultResponseErrorHandler;
+import org.springframework.web.client.ResponseErrorHandler;
 
-public class DownstreamApiErrorHandler extends DefaultResponseErrorHandler {
+public class DownstreamApiErrorHandler implements ResponseErrorHandler {
 
-  @Override
-  public void handleError(@NonNull ClientHttpResponse response) throws IOException {
-      int rawStatusCode = response.getStatusCode().value();
-      String body = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
+    @Override
+    public boolean hasError(@NonNull ClientHttpResponse response) throws IOException {
+        return response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError();
+    }
 
-      if (rawStatusCode >= 400 && rawStatusCode < 500) {
-          throw new DownstreamClientException("Downstream 4xx error: " + rawStatusCode + ", body: " + body);
-      } else if (rawStatusCode >= 500) {
-          throw new DownstreamServerException("Downstream 5xx error: " + rawStatusCode + ", body: " + body);
-      } else {
-          super.handleError(response); // fallback to default behavior
-      }
-  }
+    @Override
+    public void handleError(@NonNull ClientHttpResponse response) throws IOException {
+        handleError(null, null, response);
+    }
+
+    @Override
+    public void handleError(@NonNull URI url, @NonNull HttpMethod method, @NonNull ClientHttpResponse response) throws IOException {
+        if (response.getStatusCode().is4xxClientError()) {
+            throw new DownstreamClientException("Downstream 4xx error: " + response.getStatusCode());
+        } else if (response.getStatusCode().is5xxServerError()) {
+            throw new DownstreamServerException("Downstream 5xx error: " + response.getStatusCode());
+        }
+    }
 }

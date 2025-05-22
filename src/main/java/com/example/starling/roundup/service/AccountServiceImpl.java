@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.example.starling.roundup.exception.AccountNotFoundException;
 import com.example.starling.roundup.exception.InvalidAccountDataException;
@@ -15,6 +15,8 @@ import com.example.starling.roundup.model.Account;
 import com.example.starling.roundup.model.AccountsResponse;
 import com.example.starling.roundup.model.Balance;
 import com.example.starling.roundup.model.CurrencyAndAmount;
+
+import reactor.core.publisher.Mono;
 
 /**
  * Implementation of the AccountService interface. This service provides methods
@@ -29,10 +31,10 @@ public class AccountServiceImpl implements AccountService {
     private static final String GET_ACCOUNTS_PATH = "/api/v2/accounts";
     private static final String GET_BALANCE_PATH = "/api/v2/accounts/{accountUid}/balance";
 
-    private final RestTemplate restTemplate;
+    private final WebClient webClient;
 
-    public AccountServiceImpl(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    public AccountServiceImpl(WebClient webClient) {
+        this.webClient = webClient;
     }
 
     /**
@@ -43,36 +45,40 @@ public class AccountServiceImpl implements AccountService {
      * @throws AccountNotFoundException if no accounts are found
      */
     @Override
-    public Account getDefaultAccount() {
+    public Mono<Account> getDefaultAccount() {
         log.debug("Retrieving default account");
 
-        List<Account> accounts = Optional.ofNullable(restTemplate.getForObject(GET_ACCOUNTS_PATH, AccountsResponse.class))
-                .map(AccountsResponse::accounts)
-                .orElseThrow(() -> {
-                    log.error("Failed to retrieve valid account data from API");
+        return webClient.get()
+                .uri(GET_ACCOUNTS_PATH)
+                .retrieve()
+                .bodyToMono(AccountsResponse.class)
+                .flatMap(response -> {
+                    List<Account> accounts = response.accounts();
+                    if (accounts == null || accounts.isEmpty()) {
+                        log.error("No accounts found for user");
+                        return Mono.error(new AccountNotFoundException("Account not found"));
+                    }
+                    log.debug("Retrieved default account with ID: {}", accounts.get(0).accountUid());
+                    return Mono.just(accounts.get(0));
+                })
+                .onErrorMap(e -> {
+                    log.error("Failed to retrieve valid account data from API", e);
                     return new InvalidAccountDataException("Account data not valid");
                 });
-
-        if (accounts.isEmpty()) {
-            log.error("No accounts found for user");
-            throw new AccountNotFoundException("Account not found");
-        }
-
-        log.debug("Retrieved default account with ID: {}", accounts.get(0).accountUid());
-        return accounts.get(0);
     }
 
     /**
      * {@inheritDoc} Gets the default category from the provided account object.
      */
     @Override
-    public UUID getDefaultCategory(Account account) {
+    public Mono<UUID> getDefaultCategory(Account account) {
         log.debug("Getting default category for account: {}", account.accountUid());
 
         return Optional.ofNullable(account.defaultCategory())
-                .orElseThrow(() -> {
+                .map(Mono::just)
+                .orElseGet(() -> {
                     log.error("Account {} does not have a default category", account.accountUid());
-                    return new InvalidAccountDataException("Account does not have default category");
+                    return Mono.error(new InvalidAccountDataException("Account does not have default category"));
                 });
     }
 
@@ -80,22 +86,17 @@ public class AccountServiceImpl implements AccountService {
      * {@inheritDoc} Fetches the account balance from the balance API endpoint.
      */
     @Override
-    public CurrencyAndAmount getEffectiveBalance(UUID accountUid) {
+    public Mono<CurrencyAndAmount> getEffectiveBalance(UUID accountUid) {
         log.debug("Fetching effective balance for account: {}", accountUid);
 
-        Balance balance = Optional.ofNullable(
-                restTemplate.getForObject(
-                        GET_BALANCE_PATH,
-                        Balance.class,
-                        accountUid
-                )
-        )
-                .orElseThrow(() -> {
-                    log.error("Failed to fetch balance for account: {}", accountUid);
+        return webClient.get()
+                .uri(GET_BALANCE_PATH, accountUid)
+                .retrieve()
+                .bodyToMono(Balance.class)
+                .map(Balance::effectiveBalance)
+                .onErrorMap(e -> {
+                    log.error("Failed to fetch balance for account: {}", accountUid, e);
                     return new InvalidAccountDataException("Failed to fetch account balance");
                 });
-
-        log.debug("Retrieved balance for account {}: {}", accountUid, balance.effectiveBalance().minorUnits());
-        return balance.effectiveBalance();
     }
 }

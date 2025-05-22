@@ -10,6 +10,7 @@ import com.example.starling.roundup.service.RoundUpService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v2/feed")
@@ -23,16 +24,16 @@ public class RoundUpController {
     }
 
     @Operation(
-        summary = "Round up transactions",
-        description = "Rounds up all transactions to the nearest pound and transfers the difference to the savings goal"
+            summary = "Round up transactions",
+            description = "Rounds up all transactions to the nearest pound and transfers the difference to the savings goal"
     )
     @ApiResponse(
-        responseCode = "200",
-        description = "Transactions rounded up successfully"
+            responseCode = "200",
+            description = "Transactions rounded up successfully"
     )
     @PostMapping("/roundup")
-    public ResponseEntity<Void> roundUpTransactions() {
-        roundUpService.roundUpTransactions();
-        return ResponseEntity.ok().build();
+    public Mono<ResponseEntity<Void>> roundUpTransactions() {
+        return roundUpService.roundUpTransactions()
+                .then(Mono.just(ResponseEntity.ok().build()));
     }
 }
