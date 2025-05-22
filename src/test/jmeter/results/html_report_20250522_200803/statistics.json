@@ -1,0 +1,34 @@
+{
+  "Total" : {
+    "transaction" : "Total",
+    "sampleCount" : 5000,
+    "errorCount" : 31,
+    "errorPct" : 0.62,
+    "meanResTime" : 867.8679999999989,
+    "medianResTime" : 20.0,
+    "minResTime" : 3.0,
+    "maxResTime" : 30005.0,
+    "pct1ResTime" : 43.0,
+    "pct2ResTime" : 62.0,
+    "pct3ResTime" : 25101.0,
+    "throughput" : 30.217322986921943,
+    "receivedKBytesPerSec" : 1.6045339487846593,
+    "sentKBytesPerSec" : 5.48398968191735
+  },
+  "RoundUp Request" : {
+    "transaction" : "RoundUp Request",
+    "sampleCount" : 5000,
+    "errorCount" : 31,
+    "errorPct" : 0.62,
+    "meanResTime" : 867.8679999999989,
+    "medianResTime" : 20.0,
+    "minResTime" : 3.0,
+    "maxResTime" : 30005.0,
+    "pct1ResTime" : 43.0,
+    "pct2ResTime" : 62.0,
+    "pct3ResTime" : 25101.0,
+    "throughput" : 30.217322986921943,
+    "receivedKBytesPerSec" : 1.6045339487846593,
+    "sentKBytesPerSec" : 5.48398968191735
+  }
+}
