@@ -54,11 +54,6 @@ public class AccountServiceImpl implements AccountService {
                         .bodyToMono(AccountsResponse.class),
                 "getDefaultAccount"
         ).flatMap(response -> {
-            if (response == null) {
-                log.error("Received null response from accounts API");
-                return Mono.error(new InvalidAccountDataException("Null response from accounts API"));
-            }
-
             List<Account> accounts = response.accounts();
             if (accounts == null || accounts.isEmpty()) {
                 log.error("No accounts found for user");

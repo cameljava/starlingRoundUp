@@ -1,20 +1,22 @@
 package com.example.starling.roundup.service;
 
-import java.util.Collections;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.when;
+
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
-import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClient.RequestHeadersUriSpec;
+import org.springframework.web.reactive.function.client.WebClient.ResponseSpec;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import com.example.starling.roundup.exception.AccountNotFoundException;
 import com.example.starling.roundup.exception.InvalidAccountDataException;
@@ -23,114 +25,209 @@ import com.example.starling.roundup.model.AccountsResponse;
 import com.example.starling.roundup.model.Balance;
 import com.example.starling.roundup.model.CurrencyAndAmount;
 
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+
 @ExtendWith(MockitoExtension.class)
 class AccountServiceImplTest {
 
     @Mock
-    private RestTemplate restTemplate;
+    private WebClient webClient;
 
-    private AccountService accountService;
+    @Mock
+    private RequestHeadersUriSpec<?> requestHeadersUriSpec;
 
-    private final UUID accountUid = UUID.randomUUID();
-    private final UUID defaultCategoryId = UUID.randomUUID();
+    @Mock
+    private ResponseSpec responseSpec;
+
+    private AccountServiceImpl accountService;
+
+    private static final UUID TEST_ACCOUNT_UID = UUID.randomUUID();
+    private static final UUID TEST_CATEGORY_UID = UUID.randomUUID();
+    private static final String TEST_CURRENCY = "GBP";
+    private static final Long TEST_AMOUNT = 1000L;
 
     @BeforeEach
-    @SuppressWarnings("unused")
     void setUp() {
-        accountService = new AccountServiceImpl(restTemplate);
+        accountService = new AccountServiceImpl(webClient);
     }
 
     @Test
     void getDefaultAccount_Success() {
         // Given
-        Account account = new Account(accountUid, defaultCategoryId, "PRIMARY", "GBP");
-        AccountsResponse accountsResponse = new AccountsResponse(List.of(account));
-        when(restTemplate.getForObject(eq("/api/v2/accounts"), eq(AccountsResponse.class)))
-                .thenReturn(accountsResponse);
+        setupWebClientMocks();
+        Account testAccount = new Account(TEST_ACCOUNT_UID, TEST_CATEGORY_UID, "PRIMARY", TEST_CURRENCY);
+        AccountsResponse accountsResponse = new AccountsResponse(List.of(testAccount));
+        when(responseSpec.bodyToMono(AccountsResponse.class))
+                .thenReturn(Mono.just(accountsResponse));
 
         // When
-        Account result = accountService.getDefaultAccount();
+        Mono<Account> result = accountService.getDefaultAccount();
 
         // Then
-        assertNotNull(result);
-        assertEquals(accountUid, result.accountUid());
-        assertEquals(defaultCategoryId, result.defaultCategory());
-        assertEquals("PRIMARY", result.accountType());
-        assertEquals("GBP", result.currency());
+        StepVerifier.create(result)
+                .expectNext(testAccount)
+                .verifyComplete();
     }
 
     @Test
-    void getDefaultAccount_ThrowsException_WhenNoAccountsFound() {
+    void getDefaultAccount_RetryOn5xxError() {
         // Given
-        AccountsResponse emptyResponse = new AccountsResponse(Collections.emptyList());
-        when(restTemplate.getForObject(eq("/api/v2/accounts"), eq(AccountsResponse.class)))
-                .thenReturn(emptyResponse);
+        setupWebClientMocks();
+        Account testAccount = new Account(TEST_ACCOUNT_UID, TEST_CATEGORY_UID, "PRIMARY", TEST_CURRENCY);
+        AccountsResponse accountsResponse = new AccountsResponse(List.of(testAccount));
+        
+        AtomicInteger attemptCounter = new AtomicInteger(0);
+        when(responseSpec.bodyToMono(AccountsResponse.class))
+            .thenReturn(Mono.fromCallable(() -> {
+                if (attemptCounter.getAndIncrement() == 0) {
+                    throw WebClientResponseException.create(500, "Server Error", null, null, null);
+                }
+                return accountsResponse;
+            }));
 
-        // When/Then
-        AccountNotFoundException exception = assertThrows(AccountNotFoundException.class,
-                () -> accountService.getDefaultAccount());
-        assertEquals("Account not found", exception.getMessage());
+        // When
+        Mono<Account> result = accountService.getDefaultAccount();
+
+        // Then
+        StepVerifier.create(result)
+                .expectNext(testAccount)
+                .verifyComplete();
     }
 
     @Test
-    void getDefaultAccount_ThrowsException_WhenResponseIsNull() {
+    void getDefaultAccount_NoRetryOn4xxError() {
         // Given
-        when(restTemplate.getForObject(eq("/api/v2/accounts"), eq(AccountsResponse.class)))
-                .thenReturn(null);
+        setupWebClientMocks();
+        when(responseSpec.bodyToMono(AccountsResponse.class))
+                .thenReturn(Mono.error(WebClientResponseException.create(404, "Not Found", null, null, null)));
 
-        // When/Then
-        InvalidAccountDataException exception = assertThrows(InvalidAccountDataException.class,
-                () -> accountService.getDefaultAccount());
-        assertEquals("Account data not valid", exception.getMessage());
+        // When
+        Mono<Account> result = accountService.getDefaultAccount();
+
+        // Then
+        StepVerifier.create(result)
+                .expectErrorMatches(error -> 
+                    error instanceof InvalidAccountDataException &&
+                    error.getMessage().contains("Failed to execute getDefaultAccount") &&
+                    error.getMessage().contains("404 Not Found"))
+                .verify();
+    }
+
+    @Test
+    void getDefaultAccount_NoAccounts_ThrowsAccountNotFoundException() {
+        // Given
+        setupWebClientMocks();
+        AccountsResponse emptyResponse = new AccountsResponse(List.of());
+        when(responseSpec.bodyToMono(AccountsResponse.class))
+                .thenReturn(Mono.just(emptyResponse));
+
+        // When
+        Mono<Account> result = accountService.getDefaultAccount();
+
+        // Then
+        StepVerifier.create(result)
+                .expectErrorMatches(error -> 
+                    error instanceof AccountNotFoundException &&
+                    error.getMessage().contains("Account not found"))
+                .verify();
     }
 
     @Test
     void getDefaultCategory_Success() {
         // Given
-        Account account = new Account(accountUid, defaultCategoryId, "PRIMARY", "GBP");
+        Account account = new Account(TEST_ACCOUNT_UID, TEST_CATEGORY_UID, "PRIMARY", TEST_CURRENCY);
 
         // When
-        UUID result = accountService.getDefaultCategory(account);
+        Mono<UUID> result = accountService.getDefaultCategory(account);
 
         // Then
-        assertEquals(defaultCategoryId, result);
+        StepVerifier.create(result)
+                .expectNext(TEST_CATEGORY_UID)
+                .verifyComplete();
     }
 
     @Test
-    void getDefaultCategory_ThrowsException_WhenAccountHasNoDefaultCategory() {
+    void getDefaultCategory_NullCategory_ThrowsInvalidAccountDataException() {
         // Given
-        Account accountWithoutCategory = new Account(accountUid, null, "PRIMARY", "GBP");
+        Account account = new Account(TEST_ACCOUNT_UID, null, "PRIMARY", TEST_CURRENCY);
 
-        // When/Then
-        InvalidAccountDataException exception = assertThrows(InvalidAccountDataException.class,
-                () -> accountService.getDefaultCategory(accountWithoutCategory));
-        assertEquals("Account does not have default category", exception.getMessage());
+        // When
+        Mono<UUID> result = accountService.getDefaultCategory(account);
+
+        // Then
+        StepVerifier.create(result)
+                .expectErrorMatches(error -> 
+                    error instanceof InvalidAccountDataException &&
+                    error.getMessage().contains("Account does not have default category"))
+                .verify();
     }
 
     @Test
     void getEffectiveBalance_Success() {
         // Given
-        CurrencyAndAmount currencyAndAmount = new CurrencyAndAmount("GBP", 1234L);
-        Balance balance = new Balance(currencyAndAmount, currencyAndAmount, currencyAndAmount, currencyAndAmount, currencyAndAmount);
-        when(restTemplate.getForObject(eq("/api/v2/accounts/{accountUid}/balance"), eq(Balance.class), eq(accountUid)))
-                .thenReturn(balance);
+        setupWebClientMocks();
+        CurrencyAndAmount expectedBalance = new CurrencyAndAmount(TEST_CURRENCY, TEST_AMOUNT);
+        Balance balance = new Balance(expectedBalance, expectedBalance, expectedBalance, expectedBalance, expectedBalance);
+        when(responseSpec.bodyToMono(Balance.class))
+                .thenReturn(Mono.just(balance));
 
         // When
-        CurrencyAndAmount result = accountService.getEffectiveBalance(accountUid);
+        Mono<CurrencyAndAmount> result = accountService.getEffectiveBalance(TEST_ACCOUNT_UID);
 
         // Then
-        assertEquals(currencyAndAmount, result);
+        StepVerifier.create(result)
+                .expectNext(expectedBalance)
+                .verifyComplete();
     }
 
     @Test
-    void getEffectiveBalance_ThrowsException_WhenBalanceResponseIsNull() {
+    void getEffectiveBalance_RetryOn5xxError() {
         // Given
-        when(restTemplate.getForObject(eq("/api/v2/accounts/{accountUid}/balance"), eq(Balance.class), eq(accountUid)))
-                .thenReturn(null);
+        setupWebClientMocks();
+        CurrencyAndAmount expectedBalance = new CurrencyAndAmount(TEST_CURRENCY, TEST_AMOUNT);
+        Balance balance = new Balance(expectedBalance, expectedBalance, expectedBalance, expectedBalance, expectedBalance);
 
-        // When/Then
-        InvalidAccountDataException exception = assertThrows(InvalidAccountDataException.class,
-                () -> accountService.getEffectiveBalance(accountUid));
-        assertEquals("Failed to fetch account balance", exception.getMessage());
+        AtomicInteger attemptCounter = new AtomicInteger(0);
+        when(responseSpec.bodyToMono(Balance.class))
+            .thenReturn(Mono.fromCallable(() -> {
+                if (attemptCounter.getAndIncrement() == 0) {
+                    throw WebClientResponseException.create(500, "Server Error", null, null, null);
+                }
+                return balance;
+            }));
+
+        // When
+        Mono<CurrencyAndAmount> result = accountService.getEffectiveBalance(TEST_ACCOUNT_UID);
+
+        // Then
+        StepVerifier.create(result)
+                .expectNext(expectedBalance)
+                .verifyComplete();
+    }
+
+    @Test
+    void getEffectiveBalance_NoRetryOn4xxError() {
+        // Given
+        setupWebClientMocks();
+        when(responseSpec.bodyToMono(Balance.class))
+                .thenReturn(Mono.error(WebClientResponseException.create(404, "Not Found", null, null, null)));
+
+        // When
+        Mono<CurrencyAndAmount> result = accountService.getEffectiveBalance(TEST_ACCOUNT_UID);
+
+        // Then
+        StepVerifier.create(result)
+                .expectErrorMatches(error -> 
+                    error instanceof InvalidAccountDataException &&
+                    error.getMessage().contains("Failed to execute getEffectiveBalance") &&
+                    error.getMessage().contains("404 Not Found"))
+                .verify();
+    }
+
+    private void setupWebClientMocks() {
+        doReturn(requestHeadersUriSpec).when(webClient).get();
+        doReturn(requestHeadersUriSpec).when(requestHeadersUriSpec).uri(any(String.class), any(Object[].class));
+        doReturn(responseSpec).when(requestHeadersUriSpec).retrieve();
     }
 }
