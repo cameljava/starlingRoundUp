@@ -23,9 +23,13 @@ public class ReactiveServiceTemplate {
                                 operationName,
                                 retrySignal.failure().getMessage())))
                 .onErrorMap(e -> {
-                    log.error("Failed to execute {}: {}", operationName, e.getMessage());
+                    String errorMessage = e.getMessage();
+                    if (e.getCause() != null) {
+                        errorMessage += ": " + e.getCause().getMessage();
+                    }
+                    log.error("Failed to execute {}: {}", operationName, errorMessage);
                     return new InvalidAccountDataException(
-                            String.format("Failed to execute %s: %s", operationName, e.getMessage()));
+                            String.format("Failed to execute %s: %s", operationName, errorMessage));
                 });
     }
 
