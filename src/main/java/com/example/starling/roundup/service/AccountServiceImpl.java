@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -15,7 +13,9 @@ import com.example.starling.roundup.model.Account;
 import com.example.starling.roundup.model.AccountsResponse;
 import com.example.starling.roundup.model.Balance;
 import com.example.starling.roundup.model.CurrencyAndAmount;
+import com.example.starling.roundup.util.ReactiveServiceTemplate;
 
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
 /**
@@ -24,9 +24,8 @@ import reactor.core.publisher.Mono;
  * default category, and account balance.
  */
 @Service
+@Slf4j
 public class AccountServiceImpl implements AccountService {
-
-    private static final Logger log = LoggerFactory.getLogger(AccountServiceImpl.class);
 
     private static final String GET_ACCOUNTS_PATH = "/api/v2/accounts";
     private static final String GET_BALANCE_PATH = "/api/v2/accounts/{accountUid}/balance";
@@ -48,23 +47,33 @@ public class AccountServiceImpl implements AccountService {
     public Mono<Account> getDefaultAccount() {
         log.debug("Retrieving default account");
 
-        return webClient.get()
-                .uri(GET_ACCOUNTS_PATH)
-                .retrieve()
-                .bodyToMono(AccountsResponse.class)
-                .flatMap(response -> {
-                    List<Account> accounts = response.accounts();
-                    if (accounts == null || accounts.isEmpty()) {
-                        log.error("No accounts found for user");
-                        return Mono.error(new AccountNotFoundException("Account not found"));
-                    }
-                    log.debug("Retrieved default account with ID: {}", accounts.get(0).accountUid());
-                    return Mono.just(accounts.get(0));
-                })
-                .onErrorMap(e -> {
-                    log.error("Failed to retrieve valid account data from API", e);
-                    return new InvalidAccountDataException("Account data not valid");
-                });
+        return ReactiveServiceTemplate.withRetry(
+                webClient.get()
+                        .uri(GET_ACCOUNTS_PATH)
+                        .retrieve()
+                        .bodyToMono(AccountsResponse.class),
+                "getDefaultAccount"
+        ).flatMap(response -> {
+            if (response == null) {
+                log.error("Received null response from accounts API");
+                return Mono.error(new InvalidAccountDataException("Null response from accounts API"));
+            }
+
+            List<Account> accounts = response.accounts();
+            if (accounts == null || accounts.isEmpty()) {
+                log.error("No accounts found for user");
+                return Mono.error(new AccountNotFoundException("Account not found"));
+            }
+
+            Account defaultAccount = accounts.get(0);
+            if (defaultAccount == null) {
+                log.error("Default account is null");
+                return Mono.error(new InvalidAccountDataException("Default account is null"));
+            }
+
+            log.debug("Retrieved default account with ID: {}", defaultAccount.accountUid());
+            return Mono.just(defaultAccount);
+        });
     }
 
     /**
@@ -89,14 +98,13 @@ public class AccountServiceImpl implements AccountService {
     public Mono<CurrencyAndAmount> getEffectiveBalance(UUID accountUid) {
         log.debug("Fetching effective balance for account: {}", accountUid);
 
-        return webClient.get()
-                .uri(GET_BALANCE_PATH, accountUid)
-                .retrieve()
-                .bodyToMono(Balance.class)
-                .map(Balance::effectiveBalance)
-                .onErrorMap(e -> {
-                    log.error("Failed to fetch balance for account: {}", accountUid, e);
-                    return new InvalidAccountDataException("Failed to fetch account balance");
-                });
+        return ReactiveServiceTemplate.withRetry(
+                webClient.get()
+                        .uri(GET_BALANCE_PATH, accountUid)
+                        .retrieve()
+                        .bodyToMono(Balance.class)
+                        .map(Balance::effectiveBalance),
+                "getEffectiveBalance"
+        );
     }
 }
